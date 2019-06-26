@@ -1,2 +1,2 @@
 @echo off
-call python -u -m localz %*
+call %~dp0localize.bat
