@@ -1,2 +1,2 @@
 @echo off
-call %~dp0localize.bat
+call %~dp0localize.bat %*
