@@ -48,6 +48,13 @@ for dirname in ("python", "bin"):
     )
 
 
+# Inject version for Python access
+version = os.getenv("REZ_BUILD_PROJECT_VERSION", "0.0")
+versionfname = os.path.join(build_dir, "python", "localz", "__version__.py")
+with open(versionfname, "w") as f:
+    f.write("version = \"%s\"" % version)
+
+
 if int(os.getenv("REZ_BUILD_INSTALL")):  # e.g. "1"
     install_dir = os.environ["REZ_BUILD_INSTALL_PATH"]
     exists = os.path.exists(install_dir)
@@ -68,7 +75,7 @@ if int(os.getenv("REZ_BUILD_INSTALL")):  # e.g. "1"
         shutil.rmtree(install_dir)  # Created by Rez
     except OSError as e:
         # May not exist
-        if e.errno != errno.EEXIST:
+        if e.errno not in (errno.ENOENT, errno.EEXIST):
             raise
 
     shutil.copytree(build_dir, install_dir,)
