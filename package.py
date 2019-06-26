@@ -1,5 +1,5 @@
 name = "localz"
-version = "0.1.3"
+version = "0.1.4"
 requires = ["python-2.7+,<4", "rez-2.29+"]
 build_command = "python {root}/install.py"
 
