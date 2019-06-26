@@ -49,3 +49,29 @@ Localise an entire context with the `--full` flag.
 ```bash
 $ rez env localz -- localise maya alita gitlab --full
 ```
+
+##### Limited by requirements
+
+Localise one package resolved with another.
+
+```bash
+$ rez env localz -- localise maya --requires alita
+```
+
+In this case, if `alita` carries a requirement for `maya-2018` then that's the version being localised, despite `maya-2017` and `maya-2019` also being available.
+
+##### Specific localisation
+
+The syntax to `localise` is the same as for `rez env`, including complex version queries.
+
+```bash
+$ rez env localz -- localise "maya-2015,<2020"
+```
+
+<br>
+
+### FAQ
+
+##### <blockquote>What about <code>rez cp</code>?</blockquote>
+
+`localise` uses `rez cp` under the hood and can be considered high-level version of it, taking more variables into account like context and other packages.
