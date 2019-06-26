@@ -2,6 +2,8 @@
 
 Package localisation for Rez.
 
+- [ ] [Design Document for 1.0](https://github.com/mottosso/rez-localz/issues/1)
+
 **See also**
 
 - [rez-pipz](https://github.com/mottosso/rez-pipz)
