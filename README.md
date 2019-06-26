@@ -35,6 +35,7 @@ This project is an extension of this, with additional features such as:
 - [x]  **Multiple Package Localisation** That each resolve into the same context prior to localising, without taking dependencies with them
 - [x]  **Respects `is_relocatable` flag** Packages have a `is_relocatable` variable that is respected by this mechanism, overridden with `--force`
 - [x]  **Filtered Requests** Localise some packages in the context of other packages, for fine-grained control over what stays remote and what goes along for the ride.
+- [x] **Multi Variant Localisation** Localise relevant or all variants for a package with the `--all-variants` flag, such that e.g. both `maya-2018` and `maya-2019` variants of a given plug-in is made available locally.
 - [ ] [**Tagged Localisation**](https://github.com/mottosso/rez-localz/issues/5) Localised packages carry a special variable that identify them as having been localised, for future flags such as `rez env --no-localised`
 - [ ] [**Automatic Localisation**](https://github.com/mottosso/rez-localz/issues/6) Based on various criteria
 - [ ] **Software Provisioning** Replace your Ansible/Salt/Puppet stack with Rez for provisioning of large-scale software like Maya and Nuke, with the same familiar interface, version control and dependency resolution as any other Rez package
@@ -101,6 +102,16 @@ The syntax to `localise` is the same as for `rez env`, including complex version
 ```bash
 $ rez env localz -- localise "maya-2015,<2020"
 ```
+
+##### All Variants
+
+Pass `--all-variants` to include every variant for a given package, rather than the one that matches the current resolve.
+
+```bash
+$ rez env localz -- localise python --all-variants
+```
+
+The above could include both Linux and Windows variants for the latest version of `python`.
 
 <br>
 
