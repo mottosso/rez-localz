@@ -11,6 +11,8 @@ Package localisation for Rez.
 
 ### Usage
 
+![localz8](https://user-images.githubusercontent.com/2152766/60201451-35d52200-9840-11e9-8213-1a7448525470.gif)
+
 **Prerequisities**
 
 - `rez-2.29+`
