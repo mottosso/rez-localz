@@ -13,7 +13,7 @@ import contextlib
 
 from rez.config import config
 from rez.resolved_context import ResolvedContext
-from rez.packages_ import Package, Variant, iter_packages
+from rez.packages_ import Package
 from rez.exceptions import PackageFamilyNotFoundError
 from rez import package_copy, __version__ as rez_version
 
@@ -351,7 +351,7 @@ for variant in copied:
     tell("  %s-%s" % (variant.name, variant.version))
 
 if skipped:
-    tell("The following packages were already localized:")
+    tell("The following packages were already available locally:")
     for variant in skipped:
         tell("  %s-%s" % (variant.name, variant.version))
 
