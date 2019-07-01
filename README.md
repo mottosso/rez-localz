@@ -64,10 +64,21 @@ $ rez build --install
 Once installed, you can start localising packages like this.
 
 ```bash
-$ rez env localz -- localise Qt.py
+$ rez env localz -- localise mypackage
 ```
 
-This will localise the [Qt.py]() package onto your `config.local_packages_path`.
+The package `mypackage` would then be localised to `~/.packages`.
+
+##### Customise Destination
+
+Localised packages default to `~/.packages`, which resides next to your "local" a.k.a. "development" package path, `~/packages`. Customise the destination path using either an environment variable or command-line argument.
+
+```bash
+$ export REZ_LOCALISED_PACKAGES_PATH=~/localised_packages
+$ rez env localz -- localise Qt.py --prefix "~/localised_packages"
+```
+
+The argument takes precedence over the environment variable.
 
 ##### Multiple requests
 

@@ -15,6 +15,7 @@ from rez.config import config
 from rez.resolved_context import ResolvedContext
 from rez.packages_ import Package
 from rez.exceptions import PackageFamilyNotFoundError
+from rez.packages_ import iter_packages
 from rez import package_copy, __version__ as rez_version
 
 try:
@@ -66,6 +67,9 @@ parser.add_argument("--requires", nargs="+", default=[], metavar="PKG", help=(
     "Localize request, fulfilling these requirements"))
 parser.add_argument("--all-variants", action="store_true", help=(
     "Copy not just the resolved variant, but all of them"))
+parser.add_argument("--prefix", nargs="+", metavar="PATH", help=(
+    "Write localised packages to here, instead of "
+    "REZ_LOCALISED_PACKAGES_PATH"))
 parser.add_argument("--paths", nargs="+", metavar="PATH", help=(
     "Override package search path"))
 parser.add_argument("-f", "--force", action="store_true", help=(
@@ -231,7 +235,16 @@ tell("Using %s-%s" % (__project__, rez_version))
 # Find local packages path
 variants = list()
 nonlocal_packages_path = opts.paths or config.nonlocal_packages_path
-localized_packages_path = config.local_packages_path
+localized_packages_path = opts.prefix or os.getenv(
+    "REZ_LOCALISED_PACKAGES_PATH",
+
+    # Default
+    os.path.expanduser("~/.packages")
+)
+
+# Sanitise path, protect against e.g. \//\ and ../../
+localized_packages_path = os.path.abspath(localized_packages_path)
+localized_packages_path = os.path.normpath(localized_packages_path)
 
 tell("Packages requested: %s" % " ".join(opts.request))
 tell("Packages will be localized to %s" % localized_packages_path)
@@ -262,7 +275,7 @@ with stage("Resolving requested packages.."):
         else:
             abort(
                 "Package '%s' wasn't found in any of your "
-                "non-local package paths" % package
+                "non-local, non-localised package paths" % package
             )
 
     # Sort out relevant packages
@@ -276,6 +289,52 @@ with stage("Resolving requested packages.."):
         variants += [variant]
 
 
+def exists(variant):
+    """Determine whether `variant` is already localised
+
+    A variant is localised if it's coming from the localised_packages_path
+    or if an identical variant therein is already present.
+
+    """
+
+    if variant.resource.repository_type != "filesystem":
+        return False
+
+    # Package path
+    package = variant.parent
+    path = package.resource.path
+    path = os.path.abspath(path)
+    path = os.path.normpath(path)
+
+    # The package we're asking about resides in the localised
+    # packages path already.
+    if path.startswith(localized_packages_path):
+        return True
+
+    # The variant is already localised
+    it = iter_packages(variant.name,
+                       str(variant.version),
+                       paths=[localized_packages_path])
+
+    existing = list(it)
+
+    if not existing:
+        return False
+
+    # Multiple matches are possible
+    # E.g. mypackage-1.1.2, mypackage-1.1.2.beta
+    for pkg in existing:
+        for var in pkg.iter_variants():
+            if var.name != variant.name:
+                continue
+            if var.version != variant.version:
+                continue
+            if var.index != variant.index:
+                continue
+
+            return True
+
+
 count = len(variants)
 copied = list()
 skipped = list()
@@ -283,7 +342,7 @@ with stage("Preparing packages..", count) as bar:
     for var in variants:
 
         # Don't want to localise already-localised packages
-        if var.is_local:
+        if exists(var):
             skipped += [var.resource]
             continue
 
@@ -340,20 +399,19 @@ if unrelocatable:
     exit(1)
 
 
+if skipped:
+    tell("The following packages were already available locally:")
+    for variant in skipped:
+        tell("  %s-%s  (%s)" % (variant.name, variant.version, variant.uri))
+
 if not copied:
     tell("All requested packages were already localized")
     shutil.rmtree(tempdir)
     exit(0)
 
-
 tell("The following NEW packages will be localized:")
 for variant in copied:
     tell("  %s-%s" % (variant.name, variant.version))
-
-if skipped:
-    tell("The following packages were already available locally:")
-    for variant in skipped:
-        tell("  %s-%s" % (variant.name, variant.version))
 
 size = sum(
     os.path.getsize(os.path.join(dirpath, filename))
@@ -381,7 +439,7 @@ for variant in copied:
         follow_symlinks=True,
         keep_timestamp=True,
         force=True,
-        verbose=opts.verbose,
+        verbose=opts.verbose > 2,
     )
 
     if result["skipped"]:
@@ -392,3 +450,8 @@ tell("Success")
 # Cleanup
 tell("Cleaning up temporary files..")
 shutil.rmtree(tempdir)
+
+if localized_packages_path not in map(os.path.normpath, config.packages_path):
+    tell("WARNING: Localised packages currently not in your Rez search path")
+    tell("         Add '%s' to your REZ_PACKAGES_PATH"
+         % localized_packages_path)
