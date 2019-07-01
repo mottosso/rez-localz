@@ -175,7 +175,11 @@ class Animation(object):
         self._count = count
 
     def __next__(self):
-        self.tell(next(self.frames))
+        return self.tell(next(self.frames))
+
+    # Python 2
+    def next(self):
+        yield self.__next__()
 
     def step(self):
         next(self)
