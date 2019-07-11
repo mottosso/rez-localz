@@ -8,32 +8,11 @@ import logging
 import argparse
 import tempfile
 import traceback
-import itertools
 import contextlib
+import inspect
 
-from rez.config import config
-from rez.resolved_context import ResolvedContext
-from rez.packages_ import Package
-from rez.exceptions import PackageFamilyNotFoundError
-from rez.packages_ import iter_packages
-from rez import package_copy, __version__ as rez_version
-
-try:
-    from rez import __project__
-except ImportError:
-    # Vanilla Rez
-    __project__ = "rez"
-
-try:
-    # The __version__ module is written into the built Python
-    # project, such that we can forward the package version
-    from . import __version__ as localz_version
-    version = localz_version.version
-
-except ImportError:
-    # If none exists, then it's safe to assume this version
-    # hasn't been built.
-    version = "dev"
+from . import lib, version
+from . import _rezapi as rez
 
 description = """\
 Localize packages from one location to another, to improve
@@ -69,7 +48,7 @@ parser.add_argument("--all-variants", action="store_true", help=(
     "Copy not just the resolved variant, but all of them"))
 parser.add_argument("--prefix", nargs="+", metavar="PATH", help=(
     "Write localised packages to here, instead of "
-    "REZ_LOCALISED_PACKAGES_PATH"))
+    "REZ_LOCALIZED_PACKAGES_PATH"))
 parser.add_argument("--paths", nargs="+", metavar="PATH", help=(
     "Override package search path"))
 parser.add_argument("-f", "--force", action="store_true", help=(
@@ -110,7 +89,8 @@ def warn(msg, newlines=1):
 
 
 def abort(msg):
-    sys.stderr.write("ABORTED: %s\n" % msg)
+    frameinfo = inspect.currentframe()
+    sys.stderr.write("L%s ABORTED: %s\n" % (frameinfo.f_back.f_lineno, msg))
     exit(1)
 
 
@@ -166,35 +146,6 @@ def ask(msg):
         return False
 
 
-class Animation(object):
-    frames = itertools.cycle(r"\|/-")
-
-    def __init__(self, template="{frame}", count=10):
-        self._template = template
-        self._length = len(template)
-        self._count = count
-
-    def __next__(self):
-        return self.tell(next(self.frames))
-
-    # Python 2
-    def next(self):
-        yield self.__next__()
-
-    def step(self):
-        next(self)
-
-    def tell(self, frame):
-        message = self._template.format(frame=frame)
-        message = "\r%s" % message
-
-        sys.stdout.write(message)
-        sys.stdout.flush()
-
-    def finish(self):
-        self.tell("")
-
-
 @contextlib.contextmanager
 def stage(msg, count=0):
     t0 = time.time()
@@ -202,7 +153,7 @@ def stage(msg, count=0):
     if count:
         msg = "%s {frame}" % msg
 
-    bar = Animation(msg, count)
+    bar = lib.Animation(msg, count)
 
     try:
         next(bar)
@@ -234,21 +185,12 @@ sys.excepthook = excepthook
 atexit.register(cleanup)
 
 
-tell("Using %s-%s" % (__project__, rez_version))
+tell("Using %s-%s" % (rez.project, rez.version))
 
 # Find local packages path
 variants = list()
-nonlocal_packages_path = opts.paths or config.nonlocal_packages_path
-localized_packages_path = opts.prefix or os.getenv(
-    "REZ_LOCALISED_PACKAGES_PATH",
-
-    # Default
-    os.path.expanduser("~/.packages")
-)
-
-# Sanitise path, protect against e.g. \//\ and ../../
-localized_packages_path = os.path.abspath(localized_packages_path)
-localized_packages_path = os.path.normpath(localized_packages_path)
+nonlocal_packages_path = opts.paths or rez.config.nonlocal_packages_path
+localized_packages_path = opts.prefix or lib.localized_packages_path()
 
 tell("Packages requested: %s" % " ".join(opts.request))
 tell("Packages will be localized to %s" % localized_packages_path)
@@ -258,85 +200,17 @@ for path in nonlocal_packages_path:
 
 with stage("Resolving requested packages.."):
     try:
-        context = ResolvedContext(opts.request + opts.requires)
+        variants = lib.resolve(opts.request,
+                               opts.requires,
+                               opts.full)
 
-    # Handle common errors here
-    # The rest goes to the handler in stage()
-    except PackageFamilyNotFoundError as e:
-        sys.stdout.write("fail\n")
+    except Exception as e:
+        sys.stdout.write("\n")
+        abort(traceback.format_exc())
 
-        # Ideally wouldn't have to parse the string-output of
-        # this exception, but there isn't anything else we can do.
-        try:
-            _, package = str(e).split(":", 1)
-            package, _ = package.split("(", 1)
-            package = package.strip()
-
-        except Exception as e:
-            # In case the string value changes
-            abort(str(e))
-
-        else:
-            abort(
-                "Package '%s' wasn't found in any of your "
-                "non-local, non-localised package paths" % package
-            )
-
-    # Sort out relevant packages
-    for variant in context.resolved_packages:
-
-        if not opts.full:
-            # Include only requested packages
-            if variant.name not in opts.request:
-                continue
-
-        variants += [variant]
-
-
-def exists(variant):
-    """Determine whether `variant` is already localised
-
-    A variant is localised if it's coming from the localised_packages_path
-    or if an identical variant therein is already present.
-
-    """
-
-    if variant.resource.repository_type != "filesystem":
-        return False
-
-    # Package path
-    package = variant.parent
-    path = package.resource.path
-    path = os.path.abspath(path)
-    path = os.path.normpath(path)
-
-    # The package we're asking about resides in the localised
-    # packages path already.
-    if path.startswith(localized_packages_path):
-        return True
-
-    # The variant is already localised
-    it = iter_packages(variant.name,
-                       str(variant.version),
-                       paths=[localized_packages_path])
-
-    existing = list(it)
-
-    if not existing:
-        return False
-
-    # Multiple matches are possible
-    # E.g. mypackage-1.1.2, mypackage-1.1.2.beta
-    for pkg in existing:
-        for var in pkg.iter_variants():
-            if var.name != variant.name:
-                continue
-            if var.version != variant.version:
-                continue
-            if var.index != variant.index:
-                continue
-
-            return True
+    except rez.PackageFamilyNotFoundError as e:
+        sys.stdout.write("\n")
+        abort(traceback.format_exc())
 
 
 count = len(variants)
@@ -346,49 +220,21 @@ with stage("Preparing packages..", count) as bar:
     for var in variants:
 
         # Don't want to localise already-localised packages
-        if exists(var):
+        if lib.exists(var, localized_packages_path):
             skipped += [var.resource]
             continue
 
-        result = package_copy.copy_package(
-            package=var.parent,
-
-            # Copy only this one variant, unless explicitly overridden
-            variants=None if opts.all_variants else [var.index],
-
-            dest_repository=tempdir,
-            shallow=False,
-            follow_symlinks=True,
-
-            # Make localized packages as similar
-            # to their original as possible
-            keep_timestamp=True,
-
-            force=opts.force,
-
-            # Only for emergencies
-            verbose=opts.verbose > 2,
-        )
-
-        for source, destination in result["copied"]:
-            copied += [destination]
-
-        # As we're copying into a staging area, there isn't any
-        # risk of packages getting skipped. However make it assert,
-        # to ensure it doesn't proceed under false pretenses.
-        assert not result["skipped"], (tempdir, result["skipped"])
+        copied += lib.prepare(var,
+                              tempdir,
+                              opts.all_variants,
+                              opts.force,
+                              opts.verbose)
 
         bar.step()
 
 
 with stage("Determining relocatability.."):
-    def is_relocatable(pkg):
-        if pkg.relocatable is None:
-            return config.default_relocatable
-        else:
-            return pkg.relocatable
-
-    unrelocatable = [var for var in copied if not is_relocatable(var)]
+    unrelocatable = [var for var in copied if not lib.is_relocatable(var)]
 
 
 if unrelocatable:
@@ -417,11 +263,7 @@ tell("The following NEW packages will be localized:")
 for variant in copied:
     tell("  %s-%s" % (variant.name, variant.version))
 
-size = sum(
-    os.path.getsize(os.path.join(dirpath, filename))
-    for dirpath, dirnames, filenames in os.walk(tempdir)
-    for filename in filenames
-) / (10.0 ** 6)  # mb
+size = lib.dirsize(tempdir) / (10.0 ** 6)  # mb
 
 tell("After this operation, %.2f mb will be used" % size)
 
@@ -434,17 +276,7 @@ if not ask("Do you want to continue? [Y/n] "):
 tell("Localizing..")
 for variant in copied:
     tell("  %s-%s" % (variant.name, variant.version))
-
-    pkg = Package(variant.parent)
-    result = package_copy.copy_package(
-        package=pkg,
-        dest_repository=localized_packages_path,
-        shallow=False,
-        follow_symlinks=True,
-        keep_timestamp=True,
-        force=True,
-        verbose=opts.verbose > 2,
-    )
+    result = lib.localize(variant, localized_packages_path, opts.verbose)
 
     if result["skipped"]:
         print("These were already localized")
@@ -455,7 +287,8 @@ tell("Success")
 tell("Cleaning up temporary files..")
 shutil.rmtree(tempdir)
 
-if localized_packages_path not in map(os.path.normpath, config.packages_path):
+if localized_packages_path not in map(os.path.normpath,
+                                      rez.config.packages_path):
     tell("WARNING: Localised packages currently not in your Rez search path")
     tell("         Add '%s' to your REZ_PACKAGES_PATH"
          % localized_packages_path)
