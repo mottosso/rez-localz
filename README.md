@@ -2,10 +2,9 @@
 
 Package localisation for Rez.
 
-- [ ] [Design Document for 1.0](https://github.com/mottosso/rez-localz/issues/1)
-
 **See also**
 
+- [bleeding-rez](https://github.com/mottosso/bleeding-rez)
 - [rez-pipz](https://github.com/mottosso/rez-pipz)
 - [rez-scoopz](https://github.com/mottosso/rez-scoopz)
 
@@ -40,7 +39,7 @@ This project is an extension of this, with additional features such as:
 - [ ] [**Automatic Localisation**](https://github.com/mottosso/rez-localz/issues/6) Based on various criteria
 - [ ] **Software Provisioning** Replace your Ansible/Salt/Puppet stack with Rez for provisioning of large-scale software like Maya and Nuke, with the same familiar interface, version control and dependency resolution as any other Rez package
 - [ ] **Distributed Asset Collaboration** Share and collaborate on assets with a remote workforce without the drag of VPNs or remote desktops
-- [ ] **Secure Distributions** Collaborate with others using the same proprietary software, without risking your IPs or competative advantage
+- [ ] **Secure Distributions** Collaborate with others using the same proprietary software, without risking your IPs or competitive advantage
 
 <br>
 
