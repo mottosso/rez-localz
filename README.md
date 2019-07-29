@@ -4,6 +4,7 @@ Package localisation for Rez.
 
 **See also**
 
+- [allzpark](https://github.com/mottosso/allzpark)
 - [bleeding-rez](https://github.com/mottosso/bleeding-rez)
 - [rez-pipz](https://github.com/mottosso/rez-pipz)
 - [rez-scoopz](https://github.com/mottosso/rez-scoopz)

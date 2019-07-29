@@ -30,7 +30,7 @@ def resolve(request, requires=None, full=False):
             package, _ = package.split("(", 1)
             package = package.strip()
 
-        except Exception as e:
+        except Exception:
             # In case the string value changes
             raise
 
