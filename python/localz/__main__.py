@@ -42,6 +42,8 @@ parser.add_argument("request", nargs="*", help=(
     "Packages to localize"), metavar="PKG")
 parser.add_argument("--version", action="store_true", help=(
     "Print version and exit"))
+parser.add_argument("-y", "--yes", action="store_true", help=(
+    "Do not ask about whether to localise"))
 parser.add_argument("--requires", nargs="+", default=[], metavar="PKG", help=(
     "Localize request, fulfilling these requirements"))
 parser.add_argument("--all-variants", action="store_true", help=(
@@ -267,7 +269,7 @@ size = lib.dirsize(tempdir) / (10.0 ** 6)  # mb
 
 tell("After this operation, %.2f mb will be used" % size)
 
-if not ask("Do you want to continue? [Y/n] "):
+if not opts.yes and not ask("Do you want to continue? [Y/n] "):
     tell("Cancelled")
     shutil.rmtree(tempdir)
     exit(0)

@@ -5,6 +5,7 @@ from rez.package_copy import copy_package
 from rez.packages_ import Package
 from rez.config import config
 from rez import __version__ as version
+from rez.utils.formatting import PackageRequest
 
 try:
     from rez import project
@@ -21,5 +22,6 @@ __all__ = [
     "project",
     "copy_package",
     "Package",
+    "PackageRequest",
     "PackageFamilyNotFoundError",
 ]

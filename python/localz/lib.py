@@ -46,7 +46,8 @@ def resolve(request, requires=None, full=False):
 
         if not full:
             # Include only requested packages
-            if variant.name not in request:
+            names = [rez.PackageRequest(req).name for req in request]
+            if variant.name not in names:
                 continue
 
         variants += [variant]
